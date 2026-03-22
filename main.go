@@ -1,124 +1,28 @@
 package main
 
 import (
-	"log"
-	"net"
+	"fmt"
 	"os"
+
+	"github.com/MJ-NMR/pegeon/client"
+	"github.com/MJ-NMR/pegeon/server"
 )
-
-var debug = false
-
-const (
-	address      = ":6969"
-	msgMaxLenght = 50
-)
-
-var users = make(map[string]*net.Conn)
-
-func flog(s string) {
-	if debug {
-		log.Print(s)
-	}
-}
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "--debug" {
-		log.Print("debug are ON")
-		debug = true
+	if len(os.Args) < 2 {
+		help()
+		os.Exit(1)
 	}
 
-	l, err := net.Listen("tcp", address)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Println("server start Listen on ", l.Addr())
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			log.Print(err)
-		}
-		go login(conn)
+	switch os.Args[1] {
+	case "-c":
+		client.Connect(os.Args[2])
+	case "-l":
+		server.Listen(os.Args[2])
 	}
 }
 
-func login(conn net.Conn) {
-	_, err := conn.Write([]byte("Hello! Welcome to ZA3TER chat server\n"))
-	if err != nil {
-		flog(err.Error())
-		conn.Close()
-	}
-	input := make([]byte, 10)
-
-	for {
-
-		_, err = conn.Write([]byte("Username: "))
-		if err != nil {
-			flog(err.Error())
-			conn.Close()
-		}
-
-		n, err := conn.Read(input)
-		if err != nil {
-			conn.Write([]byte("Sorry...Something Wrong Happen"))
-			flog(err.Error())
-			continue
-		}
-
-		username := string(input[:n-1])
-		if n > 0 {
-			_, ok := users[username]
-			if ok {
-				conn.Write([]byte("Username exist tye something else"))
-				continue
-			}
-			users[username] = &conn
-			flog("+++ added user " + username)
-			go messageReader(username)
-			return
-		}
-	}
-}
-
-func messageReader(username string) {
-	conn := *users[username]
-	buff := make([]byte, msgMaxLenght)
-	var msg string
-	for {
-		n, err := conn.Read(buff)
-		if err != nil {
-			flog(err.Error())
-			delete(users, username)
-			return
-		}
-
-		msg += string(buff[:n])
-		if buff[n-1] != '\n' {
-			continue
-		}
-		err = hub(username, msg)
-		if err != nil {
-			flog(err.Error())
-			return
-		}
-	}
-}
-
-func hub(username, msg string) error {
-	if len(msg) > msgMaxLenght {
-		return nil
-	}
-	fullmsg := "\x1b[32m" + username + ":\x1b[0m " + msg
-	for resever := range users {
-		if resever == username {
-			continue
-		}
-		_, err := (*users[resever]).Write([]byte(fullmsg))
-		if err != nil {
-			flog(err.Error())
-			delete(users, resever)
-			return nil
-		}
-	}
-	return nil
+func help() {
+	fmt.Println("server: pigeon -l <port>")
+	fmt.Println("client: pigeon -c <address>:<port>")
 }
