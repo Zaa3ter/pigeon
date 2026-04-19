@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
+	if len(os.Args) < 3 {
 		help()
 		os.Exit(1)
 	}
